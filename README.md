@@ -1,14 +1,15 @@
 # deduplikation
-Python Script für Erkennung doppelter Dateien in Ordnern/Laufwerken
+Python script for detecting duplicate files in folders/drives
 
 # Verwendung
-  deduplikation.py "Pfad-der-rekursiv-durchsucht-werden-soll"
+  python3 deduplikation.py "start-path"
   
-  deduplikation.py "D:"
+  e.g.:
   
-  deduplikation.py "/home/user1"
+  Windows: python3.XX.exe .\deduplikation.py "C:\Ordner1" <- It is important that the last character does not contain a slash
   
+  Linux: python3 deduplikation_v2.py "/mnt/d/" <- Here it is ok to have a slash at the last character
   
-  -Funktioniert unter Windows als auch unter Liunux
+
   
-  -Ergebnisliste im Startverzeichnis nach Ausführung erstellt
+  -Ergebnisliste wird im Startverzeichnis nach Ausführung erstellt
