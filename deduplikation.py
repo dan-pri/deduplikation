@@ -67,7 +67,6 @@ def create_list(start_path):
             file.write("------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n")
             file.write("SHA-256: " + item + "\n")
             for data in duplicates[item]:
-                print("Filename: " + data.get_name() + " | Size: " + str(data.get_size()) + " Bytes | Last modified: " + str(data.get_stamp()) + " Path: " + str(data.get_path()))
                 file.write("Filename: " + data.get_name() + " | Size: " + str(data.get_size()) + " Bytes | Last modified: " + str(data.get_stamp()) + " Path: " + str(data.get_path()) + "\n")
         print("Durch")
 
