@@ -1,168 +1,111 @@
-from datetime import date
 from pathlib import Path,PurePath
 import hashlib
 import os
 import sys
 import time
 
-
-class Datei:
-    """
-        Klasse zum speichern der Dateiinformationen
-    """
-    def __init__(self, datei_name, datei_pfad, datei_größe, datei_zeitstempel):
-        self.datei_name = datei_name
-        self.datei_pfad = datei_pfad
-        self.datei_größe = datei_größe
-        self.datei_zeitstempel = datei_zeitstempel
-
-    def get_dateiname(self):
-        return self.datei_name
-
-    def get_dateipfad(self):
-        return self.datei_pfad
+class FileDat:
+    def __init__(self, file_name, file_path, file_size, file_stamp):
+        self.file_name = file_name
+        self.file_path = file_path
+        self.file_size = file_size
+        self.file_stamp = file_stamp
     
-    def get_dateigröße(self):
-        return self.datei_größe
+    def get_name(self):
+        return self.file_name
+    
+    def get_path(self):
+        return self.file_path
 
-    def get_dateizeit(self):
-        return self.datei_zeitstempel
+    def get_size(self):
+        return self.file_size
 
+    def get_stamp(self):
+        return self.file_stamp
 
-def bilde_hash(dateiname):
-    """
-        Funktion um den Hash einer Datei zu berechnen
-        Input: Aktueller Pfad
-        Output: Hashwert der Datei oder False, wenn Datei nicht geöffnet werden kann
-    """
-    #sys.stdout.write("*")
-    try:
-        print("\033[93m" + "[Untersuche]" + "\033[0m" + " " + str(dateiname))
-        #Versuche die Datei zu öffnen
-        with open(dateiname, 'rb') as file:
-            #Bilde den Hash-Wert und gebe ihn zurück
-            return hashlib.sha256(file.read()).hexdigest().upper()
-    except:
-        print("\033[91m" + "[Fehler]" + "\033[0m" + " Datei " + str(dateiname) + " konnte nicht geöffnet werden!")
-        fehlzugriff.append(str(dateiname))
-        return False
+def generate_hash(path):
+    print("[CHECK] " + str(path))
+    with open(path, "rb") as file:
+        return hashlib.sha256(file.read()).hexdigest().upper()
 
+def enumerate_data(current_path):
+    #Get current Directory content
+    dir_content = os.listdir(current_path)
 
-def suche_dateien(aktueller_pfad):
-    """
-        Rekursive Funktion um Dateien zu listen
-        Input: Aktueller Pfad
-    """
-    aktueller_ordner = Path(aktueller_pfad)
-
-    #Wenn aktueller Ordner leer ist, springe zurück [Abbruchbedingung Rekursion]
-    try:
-        if len(os.listdir(aktueller_ordner)) == 0:
-            return
-    except:
-        fehlzugriff.append(aktueller_ordner)
+    #Remove not allowed Folders from Directory
+    for folder in not_allowed_folders:
+        if folder in dir_content:
+            dir_content.remove(folder)
+    
+    #Recursion abort
+    if len(dir_content) == 0:
         return
+    
+    #Enumerate subfolder and files in current folder
+    for item in dir_content:
+        #if item is subfolder -> Recursion
+        if os.path.isdir(current_path / item):
+            enumerate_data(current_path / item)
 
-    #Durchsuche den aktuellen Ordner nach weiteren Ordnern/Dateien und befülle die beiden Listen
-    for item in os.listdir(aktueller_ordner):
-        #Wenn das aktuelle Item ein Ordner ist, gehe rekursiv rein
-        if os.path.isdir(aktueller_ordner / item):
-            suche_dateien(aktueller_ordner / item)
-
-
-        #Wenn das aktuelle Item eine Datei ist, füge sie in einer Liste hinzu
-        if os.path.isfile(aktueller_ordner / item):
-            hash = bilde_hash(aktueller_ordner / item)
-
-            #Wenn kein Hash gebildet werden konnte, überspringe die Datei
-            if hash == False:
-                continue
-
-            pfad = aktueller_ordner / item
-            änderung = time.strftime('%d/%m/%Y', time.gmtime(os.path.getmtime(pfad)))
-            größe = os.stat(aktueller_ordner / item).st_size
-            datei = Datei(item, pfad, größe, änderung)
-
-            if hash in gesamt_dateien:
-                gesamt_dateien[hash].append(datei)
+        #if item is File -> get infos an store them in Dictionary
+        elif os.path.isfile(current_path / item):
+            file = FileDat(item, current_path / item, os.stat(current_path / item).st_size, time.strftime('%d/%m/%Y', time.gmtime(os.path.getmtime(current_path))))
+            hash = generate_hash(current_path / item)
+        
+            #add Object in Dictionary
+            if hash in duplicates:
+                duplicates[hash].append(file)
             else:
-                gesamt_dateien[hash] = [datei]
+                duplicates[hash] = [file]
     return
 
-
-def erstelle_log(pfad):
-    """
-        Funktion um die Ergebnisse der Duplikatssuche in eine Datei zu schreiben
-        Input: Anfangspfad der für die Suche eingegeben wurde
-    """
-    datei = Path(pfad)
-    datei = datei / "duplikate.log"
-
-    try:
-        #Versuche die Objekte in ein Logfile zu speichern
-        with open(datei, 'w') as file:
-            file.write("Duplikationsssuche am: " + time.strftime("%d.%m.%Y %H:%M:%S")+"\n\n")
-            for item in gesamt_dateien:
-                file.write("------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n")
-                file.write("SHA 256: " + item + "\n")
-                for eintrag in gesamt_dateien[item]:
-                    dateipfad = PurePath(eintrag.get_dateipfad())
-                    file.write("Dateiname: " + eintrag.get_dateiname() + " | Dateigröße: " + str(eintrag.get_dateigröße()) + " Bytes | Letzte Änderung: " + str(eintrag.get_dateizeit())  + " | Pfad: " + str(dateipfad.as_uri()) + "\n")
+def create_list(start_path):
+    start_path = start_path / "duplicates.log"
+    with open(start_path, "w") as file:
+        file.write("Start: " + time.strftime("%d.%m.%Y %H:%M:%S") + "\n\n")
+        for item in duplicates:
             file.write("------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n")
-            file.write("Fehlerhafte zugriffe auf Ordner und Dateien:")
-            for i in fehlzugriff:
-                file.write(i)
-        print("\033[92m" + "[INFO]" + "\033[0m" " Duplikatsliste erstellt: " + str(datei))
-    except:
-        print("\033[91m" + "[Fehler]" + "\033[0m" + " Duplikatsliste konnte nicht erstellt werden!")
-        return
-     
+            file.write("SHA-256: " + item + "\n")
+            for data in duplicates[item]:
+                print("Filename: " + data.get_name() + " | Size: " + str(data.get_size()) + " Bytes | Last modified: " + str(data.get_stamp()) + " Path: " + str(data.get_path()))
+                file.write("Filename: " + data.get_name() + " | Size: " + str(data.get_size()) + " Bytes | Last modified: " + str(data.get_stamp()) + " Path: " + str(data.get_path()) + "\n")
+        print("Durch")
 
 if __name__ == "__main__":
-    start = time.perf_counter()
+    #File names that are not searched
+    not_allowed_folders = [
+        "System Volume Information", 
+        "$RECYCLE.BIN", 
+        "desktop.ini",
+        ".DS_Store"
+    ]
 
-    #Dictionary für die gefundene Dateien/Fehlzugriff
-    gesamt_dateien = {}
-    fehlzugriff = []
+    #Dictionary for all duplicates
+    duplicates = {}
 
-    #Überprüfe ob ein Argument übergeben wurde, wenn nicht gebe Fehler aus
-    if len(sys.argv) < 2:
-        print("\033[91m" + "[Fehler]" + "\033[0m" + " Der Suchpfad wurde nicht eingegeben")
+    #Check if argument is given
+    if len(sys.argv) != 2:
+        print("[ERROR] The programm requires 1 argument")
         sys.exit()
-    else:
-        pfad = sys.argv[1]
 
+    #Define the path
+    start_path = Path(str(sys.argv[1]))
 
-    #prüfe ob es das Verzeichnis überhaupt gibt
-    suchbeginn = Path(pfad)
-    if not os.path.exists(suchbeginn):
-        print("\033[91m" + "[Fehler]" + "\033[0m" + " Pfad wurde nicht gefunden")
+    #Check the path
+    if not start_path.exists():
+        print("[ERROR] Path not found")
         sys.exit()
-    else:
-        print("\033[92m" + "[INFO]" + "\033[0m" " Pfad gefunden")
 
+    #get duplication
+    enumerate_data(start_path)
 
-    #Suche nach Dateien
-    print("\033[92m" + "[START]" + "\033[0m" " Beginne Suche nach Duplikaten")
-    suche_dateien(suchbeginn)
-    print("\033[92m" + "[STOP]" + "\033[0m" " Suche abgeschlossen")
+    #Delete Entrys without duplicates
+    del_entry = []
+    for item in duplicates:
+        if len(duplicates[item]) == 1:
+            del_entry.append(item)
+    for item in del_entry:
+        duplicates.pop(item)
 
-
-    #Entferne Einträge im Dictionary, die nur ein Objekt enthalten
-    eintrag_löschen = []
-    for datei in gesamt_dateien:
-        if len(gesamt_dateien[datei]) == 1:
-            eintrag_löschen.append(datei)
-    for eintrag in eintrag_löschen:
-        gesamt_dateien.pop(eintrag)
-    
-
-    #Erstelle Logfile mit den Einträgen
-    erstelle_log(suchbeginn)
-    
-    end = time.perf_counter()
-
-    if (end-start) > 60:
-        print("\033[92m" + "[ENDE]" + "\033[0m" " Dauer: " + str(round(((end - start)/60),2)) + " min")
-    else:
-        print("\033[92m" + "[ENDE]" + "\033[0m" " Dauer: " + str(round((end - start),2)) + " sec")
+    #create list of duplicate files
+    create_list(start_path)
